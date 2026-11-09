@@ -4,7 +4,8 @@ import mongoose from "mongoose";
 // Mongoose debe aplicar al crear o actualizar sus campos.
 const ticketSchema = new mongoose.Schema(
   {
-    // Identificador legible obligatorio; trim y uppercase lo normalizan.
+    // Identificador legible obligatorio. trim quita espacios de los extremos
+    // y uppercase lo convierte a mayúsculas al guardar.
     // unique solicita un índice único en MongoDB (no es un validador de Mongoose).
     codigo: {
       type: String,
@@ -14,6 +15,7 @@ const ticketSchema = new mongoose.Schema(
       trim: true,
     },
     // Título obligatorio, sin espacios en los extremos y con longitud mínima.
+    // minlength es una validación: un valor que no la cumpla no se guarda.
     titulo: {
       type: String,
       required: [true, "El título es obligatorio"],
@@ -21,7 +23,7 @@ const ticketSchema = new mongoose.Schema(
       minlength: [5, "El título debe tener al menos 5 caracteres"],
     },
     // enum restringe los valores aceptados; default se usa cuando no se indica
-    // una prioridad al crear el documento.
+    // una prioridad al crear el documento. required impide omitir el campo.
     prioridad: {
       type: String,
       required: true,
@@ -32,6 +34,7 @@ const ticketSchema = new mongoose.Schema(
       default: "Media",
     },
     // Estado del ciclo de vida del ticket, limitado a las opciones permitidas.
+    // Su valor inicial es "Abierto" si quien crea el ticket no especifica otro.
     estado: {
       type: String,
       required: true,
@@ -57,6 +60,8 @@ const ticketSchema = new mongoose.Schema(
   },
   {
     // Mongoose añade y mantiene createdAt y updatedAt automáticamente.
+    // El Schema se pasa como primer argumento; las opciones generales van en
+    // el segundo argumento, separadas por una coma.
     timestamps: true,
   },
 );

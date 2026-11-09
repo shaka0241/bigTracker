@@ -8,13 +8,19 @@ dotenv.config();
 
 // Ejecuta la práctica completa en orden: conecta, prepara datos de ejemplo,
 // demuestra las operaciones CRUD y finalmente cierra la conexión.
+// async permite usar await dentro de la función para esperar cada operación
+// de MongoDB antes de continuar con la siguiente.
 async function ejecutarCicloCRUD() {
   try {
+    // MONGODB_URI se lee del entorno; así la dirección y credenciales no quedan
+    // escritas directamente en el código fuente.
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("Conectado a MongoDB Atlas (bugtracker_db)\n");
 
     // Vacía la colección antes de insertar los ejemplos para que cada ejecución
-    // empiece con los mismos datos. Atención: también elimina tickets previos.
+    // empiece con los mismos datos. Un filtro vacío ({}) coincide con todos:
+    // esta operación elimina TODOS los tickets de la colección. Es útil para
+    // una práctica controlada, pero no debe ejecutarse así en producción.
     await Ticket.deleteMany({});
 
     // =========================================================================
@@ -23,6 +29,8 @@ async function ejecutarCicloCRUD() {
     console.log("--- 1. FASE CREATE: Insertando tickets iniciales ---");
     // insertMany crea varios documentos en una sola operación y devuelve los
     // documentos creados, que aquí se usan para informar cuántos se insertaron.
+    // Los campos omitidos, como horasInvertidas y estado, reciben los valores
+    // por defecto definidos en el Schema.
     const ticketsCreados = await Ticket.insertMany([
       {
         codigo: "BUG-101",
@@ -76,6 +84,8 @@ async function ejecutarCicloCRUD() {
     // A) $or devuelve documentos que cumplan al menos una condición: prioridad
     // crítica o más de cuatro horas. select limita los campos de la respuesta;
     // el signo menos delante de _id excluye ese campo.
+    // Los resultados se guardan en una variable para poder inspeccionarlos
+    // después; find devuelve una lista, incluso cuando hay una sola coincidencia.
     const urgentesOComplejos = await Ticket.find({
       $or: [{ prioridad: "Crítica" }, { horasInvertidas: { $gt: 4 } }],
     }).select("codigo titulo prioridad horasInvertidas -_id");
@@ -116,6 +126,8 @@ async function ejecutarCicloCRUD() {
     // A) findOneAndUpdate localiza un ticket y lo modifica en una sola operación.
     // $set reemplaza valores concretos, $inc suma al número existente y $push
     // añade un elemento al array. Así se conservan los demás campos del ticket.
+    // La operación devuelve null si el filtro no encuentra un ticket; en este
+    // ejemplo se presupone que BUG-101 existe porque se insertó al inicio.
     const ticketActualizado = await Ticket.findOneAndUpdate(
       { codigo: "BUG-101" },
       {
@@ -134,7 +146,8 @@ async function ejecutarCicloCRUD() {
     });
 
     // B) updateMany aplica el mismo cambio a todos los documentos que coincidan
-    // con el filtro. modifiedCount informa cuántos cambiaron realmente.
+    // con el filtro. El filtro sigue seleccionando tickets sin agente y
+    // modifiedCount informa cuántos cambiaron realmente.
     const resultadoMasivo = await Ticket.updateMany(
       { agenteAsignado: { $exists: false } },
       { $set: { agenteAsignado: "Guardia Nivel 1" } },
@@ -149,7 +162,8 @@ async function ejecutarCicloCRUD() {
     console.log("\n--- 4. FASE DELETE: Eliminando documentos ---");
 
     // A) findOneAndDelete elimina el primer documento que coincide y lo devuelve,
-    // lo que permite mostrar sus datos después del borrado.
+    // lo que permite mostrar sus datos después del borrado. El filtro por codigo
+    // evita borrar otro ticket distinto.
     const ticketEliminado = await Ticket.findOneAndDelete({
       codigo: "BUG-104",
     });
@@ -164,14 +178,17 @@ async function ejecutarCicloCRUD() {
       `Total de tickets activos en la base de datos: ${totalRestante}`,
     );
   } catch (error) {
-    // Informa de fallos de conexión o de operaciones de base de datos.
+    // Si una operación dentro del try falla, el flujo salta aquí. El error se
+    // informa, en lugar de continuar usando un resultado que no se obtuvo.
     console.error("Error en el laboratorio CRUD:", error.message);
   } finally {
-    // finally se ejecuta tanto si la práctica termina bien como si ocurre un error.
+    // finally se ejecuta tanto si la práctica termina bien como si ocurre un
+    // error; cerrar la conexión evita dejar recursos abiertos al acabar.
     await mongoose.disconnect();
     console.log("\nDesconectado de MongoDB Atlas");
   }
 }
 
-// Inicia la práctica al ejecutar este archivo con Node.js.
+// Llama a la función para iniciar la práctica al ejecutar este archivo con
+// Node.js. Sin esta llamada, solo quedaría definida y no se ejecutaría.
 ejecutarCicloCRUD();
